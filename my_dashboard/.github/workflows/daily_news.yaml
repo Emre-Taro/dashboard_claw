@@ -1,0 +1,26 @@
+name: Daily Financial News Sync
+
+on:
+  schedule:
+    # 毎日 UTC 22:00（日本時間 午前7:00）に実行
+    - cron: '0 22 * * *'
+  workflow_dispatch: # 手動実行ボタンも有効化
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install feedparser google-genai supabase
+      - name: Run sync script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python scripts/sync_news.py
