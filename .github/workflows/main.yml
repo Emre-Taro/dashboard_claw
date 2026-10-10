@@ -5,6 +5,9 @@ on:
     branches:
       - main
   workflow_dispatch:
+  # 🌟 毎日日本時間の朝7:00 (UTC 22:00) に自動実行する設定
+  schedule:
+    - cron: '0 22 * * *'
 
 jobs:
   sync:
