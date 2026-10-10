@@ -1,9 +1,9 @@
 name: Daily Financial News Sync
 
 on:
-  schedule:
-    # 毎日 UTC 22:00（日本時間 午前7:00）に実行
-    - cron: '0 22 * * *'
+  # schedule:
+  #   # 毎日 UTC 22:00（日本時間 午前7:00）に実行
+  #   - cron: '0 22 * * *'
   workflow_dispatch: # 手動実行ボタンも有効化
 
 jobs:
