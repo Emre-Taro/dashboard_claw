@@ -3,10 +3,8 @@ name: Daily Financial News Sync
 on:
   push:
     branches:
-      - main  # または master やご自身のブランチ名に合わせてください
-  # schedule:
-  #   - cron: '0 22 * * *'
-  workflow_dispatch: # GitHub画面から手動実行できるボタンも有効
+      - main
+  workflow_dispatch:
 
 jobs:
   sync:
