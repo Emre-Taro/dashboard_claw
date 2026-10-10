@@ -19,8 +19,9 @@ jobs:
         run: |
           pip install feedparser google-genai supabase
       - name: Run sync script
+        working-directory: ./my_dashboard
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python ./scripts/sync_news.py
+        run: python scripts/sync_news.py
