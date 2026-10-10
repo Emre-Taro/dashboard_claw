@@ -62,7 +62,7 @@ def generate_ai_summary(articles):
     """取得した複数記事をLLMに要約させ、構造化された詳細データを生成する"""
     print("🤖 AI（LLM）による詳細マクロ要約の生成中...")
     
-    articles_text = "\n".join([f"- [{item['source']}] {item['title']} ({item['url'])" for item in articles])
+    articles_text = "\n".join([f"- [{item['source']}] {item['title']} ({item['url']})" for item in articles])
     
     prompt = f"""
     あなたはプロの金融アナリストです。以下の最新ニュースヘッドライン群（特にBloombergの情報を軸にして）を分析し、以下の7つの観点を網羅した総合要約（総計500字以上）を作成してください。
