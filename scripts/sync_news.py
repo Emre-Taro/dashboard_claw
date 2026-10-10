@@ -1,7 +1,6 @@
 import os
 from datetime import datetime
 import feedparser
-from openai import OpenAI
 from supabase import create_client, Client
 
 # --- 1. 各種設定 ---
