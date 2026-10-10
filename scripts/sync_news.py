@@ -82,7 +82,7 @@ def generate_ai_summary(articles):
 
     # Gemini APIによる要約生成
     response = gemini_client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.8-flash",
         contents=prompt
     )
     
