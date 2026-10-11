@@ -86,7 +86,7 @@ def generate_ai_summary(articles):
         contents=prompt
     )
     
-    return response.choices[0].message.content
+    return response.text
 
 def main():
     print("🚀 Bloombergをメインにした高度なニュース収集・要約パイプラインを開始します...")

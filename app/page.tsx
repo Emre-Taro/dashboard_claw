@@ -30,25 +30,25 @@ export default function DashboardPage() {
             onClick={() => setActiveTab('daily')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'daily' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-white'}`}
           >
-            ☀️ 毎日のルーティン
+            Everyday routine / news
           </button>
           <button 
             onClick={() => setActiveTab('goals')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'goals' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-white'}`}
           >
-            🎯 目標 & タスク
+            Goal & Tasks
           </button>
           <button 
             onClick={() => setActiveTab('email')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'email' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-white'}`}
           >
-            ✉️ 重要メール
+            Mails
           </button>
           <button 
             onClick={() => setActiveTab('knowledge')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'knowledge' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-white'}`}
           >
-            📚 インプット & ナレッジ
+            Imput & Knowledge
           </button>
         </nav>
 

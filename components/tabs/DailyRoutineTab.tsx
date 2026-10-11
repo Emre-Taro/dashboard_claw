@@ -102,14 +102,14 @@ export default function DailyRoutineTab() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-slate-100">☀️ 毎日のルーティン & ニュース</h2>
+      <h2 className="text-2xl font-bold text-slate-100">Everyday routine & News</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* ニュース要約セクション（クリックで全画面モーダルを開く） */}
         <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-md">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-lg font-semibold text-blue-400">📈 金融・主要マクロニュース要約</h3>
-            <button onClick={fetchNews} className="text-xs text-slate-400 hover:text-white transition">🔄 更新</button>
+            <h3 className="text-lg font-semibold text-blue-400">Finance & Macro news Summary</h3>
+            <button onClick={fetchNews} className="text-xs text-slate-400 hover:text-white transition">🔄 Update</button>
           </div>
           
           <ul className="space-y-3 text-sm text-slate-300">
@@ -125,18 +125,18 @@ export default function DailyRoutineTab() {
                     <span className="text-[10px] bg-blue-600/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded">{news.source}</span>
                   </div>
                   <p className="text-xs text-slate-300 leading-relaxed line-clamp-2">{news.summary}</p>
-                  <span className="text-[10px] text-blue-400 inline-block pt-1">全画面で詳細とトピックを見る →</span>
+                  <span className="text-[10px] text-blue-400 inline-block pt-1">See in detail with full screen →</span>
                 </li>
               ))
             ) : (
-              <p className="text-xs text-slate-500 py-4 text-center">OpenClawからのニュースデータを待っています...</p>
+              <p className="text-xs text-slate-500 py-4 text-center">Waiting for the information from OpenClaw...</p>
             )}
           </ul>
         </div>
 
         {/* LeetCode セクション */}
         <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-md">
-          <h3 className="text-lg font-semibold text-emerald-400 mb-3">💻 LeetCode 今日の課題</h3>
+          <h3 className="text-lg font-semibold text-emerald-400 mb-3">💻 LeetCode Todays assignment</h3>
           <div className="p-4 bg-slate-950 rounded border border-slate-800 flex flex-col justify-between h-[155px]">
             <div>
               <span className="text-xs bg-amber-600/30 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded mr-2">Medium</span>
@@ -153,16 +153,16 @@ export default function DailyRoutineTab() {
       {/* Wikipedia ランダム記事 */}
       <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-md">
         <div className="flex justify-between items-center mb-3">
-          <h3 className="text-lg font-semibold text-purple-400">📖 ランダム Wikipedia 記事</h3>
-          <button onClick={fetchRandomWiki} className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-xs text-white rounded transition shadow">別の記事を引く</button>
+          <h3 className="text-lg font-semibold text-purple-400">📖 Random Wikipedia Article</h3>
+          <button onClick={fetchRandomWiki} className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-xs text-white rounded transition shadow">Pick another article</button>
         </div>
         {loadingWiki ? (
-          <p className="text-slate-400 text-sm py-4">読み込み中...</p>
+          <p className="text-slate-400 text-sm py-4">Fetching...</p>
         ) : wiki ? (
           <div className="bg-slate-950 p-4 rounded border border-slate-800">
             <h4 className="font-bold text-white text-md mb-1">{wiki.title}</h4>
             <p className="text-sm text-slate-300 mb-3">{wiki.extract}</p>
-            {wiki.content_urls && <a href={wiki.content_urls.desktop.page} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline">Wikipediaで続きを読む →</a>}
+            {wiki.content_urls && <a href={wiki.content_urls.desktop.page} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline">Read whole article with Wikipedia →</a>}
           </div>
         ) : null}
       </div>
@@ -188,13 +188,13 @@ export default function DailyRoutineTab() {
 
             {/* 総合要約 */}
             <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
-              <h4 className="text-xs font-bold text-blue-400">🤖 総合マクロ要約</h4>
+              <h4 className="text-xs font-bold text-blue-400">Overall Summary</h4>
               <p className="text-sm text-slate-200 leading-relaxed">{selectedNews.summary}</p>
             </div>
 
             {/* トピック別・各メディアの記事リンク */}
             <div className="space-y-3">
-              <h4 className="text-sm font-bold text-slate-200">🔗 各トピックに関連するメディア記事一覧</h4>
+              <h4 className="text-sm font-bold text-slate-200">🔗 articles for each topics</h4>
               <div className="grid grid-cols-1 gap-2">
                 {selectedNews.details && selectedNews.details.length > 0 ? (
                   selectedNews.details.map((item, idx) => (
@@ -213,14 +213,14 @@ export default function DailyRoutineTab() {
                     </a>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-500 p-3 bg-slate-950 rounded">現在、個別トピックのリンクデータはありません。</p>
+                  <p className="text-xs text-slate-500 p-3 bg-slate-950 rounded">There is currently not any linked date</p>
                 )}
               </div>
             </div>
 
             {/* 自分のコメント・考察の提出セクション */}
             <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3">
-              <h4 className="text-sm font-bold text-amber-400">📝 このニュースに対するあなたの考察・コメント</h4>
+              <h4 className="text-sm font-bold text-amber-400">📝 Commont & opinion on this news</h4>
               <textarea 
                 value={myComment}
                 onChange={(e) => setMyComment(e.target.value)}
@@ -234,7 +234,7 @@ export default function DailyRoutineTab() {
                   disabled={isSaving || !myComment.trim()}
                   className="bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white px-5 py-2 rounded-lg text-sm font-bold transition shadow-lg"
                 >
-                  {isSaving ? '保存中...' : '📁 Google Driveに保存する'}
+                  {isSaving ? 'Saving...' : '📁 Save to the Google Drive'}
                 </button>
               </div>
             </div>
