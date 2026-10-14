@@ -7,9 +7,9 @@ export interface GoalItem {
   }
   
   export interface GoalsData {
-    longTerm: string[];
-    monthly: GoalItem[];
+    longTerm: GoalItem[];
     weekly: GoalItem[];
+    daily: GoalItem[];
   }
   
   export interface KnowledgeItem {
@@ -20,10 +20,14 @@ export interface GoalItem {
     summary: string;
   }
   
+  export type JobEmailStatus = 'applied' | 'assessment' | 'interview' | 'offer' | 'rejected' | 'other';
+
   export interface EmailItem {
     id: string;
     sender: string;
     subject: string;
     snippet: string;
     date: string;
+    status: JobEmailStatus;
+    url?: string;
   }

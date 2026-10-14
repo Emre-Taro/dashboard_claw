@@ -4,73 +4,157 @@
 import React, { useState, useEffect } from 'react';
 import { GoalsData, GoalItem } from '@/types';
 
-export default function GoalsTab() {
-  const [goals, setGoals] = useState<GoalsData>({
-    longTerm: [
-      'グローバル市場で通用するエンジニア・起業家としての基盤確立',
-      'AI/MLアーキテクチャおよび金融市場・マクロ経済の深い専門性の習得'
-    ],
-    monthly: [
-      { id: '1', text: 'ダッシュボードの完全実装と運用開始', completed: true },
-      { id: '2', text: '高度なデータ構造とアルゴリズムの演習推進', completed: false }
-    ],
-    weekly: [
-      { id: '1', text: 'Next.jsによるフロントエンド開発完了', completed: false },
-      { id: '2', text: '主要マクロ経済指標（USD/JPY、金利）の確認', completed: true }
-    ]
-  });
+const STORAGE_KEY = 'openclaw_goals';
 
-  const [newLongTerm, setNewLongTerm] = useState('');
-  const [newMonthly, setNewMonthly] = useState('');
-  const [newWeekly, setNewWeekly] = useState('');
+const DEFAULT_GOALS: GoalsData = {
+  longTerm: [
+    { id: 'lt-1', text: 'グローバル市場で通用するエンジニア・起業家としての基盤確立', completed: false },
+    { id: 'lt-2', text: 'AI/MLアーキテクチャおよび金融市場・マクロ経済の深い専門性の習得', completed: false }
+  ],
+  weekly: [
+    { id: 'w-1', text: 'Next.jsによるフロントエンド開発完了', completed: false },
+    { id: 'w-2', text: '主要マクロ経済指標（USD/JPY、金利）の確認', completed: true }
+  ],
+  daily: []
+};
+
+// 旧形式（longTerm が string[]、monthly あり）の保存データを新形式に変換する
+function normalizeGoals(saved: Record<string, unknown>): GoalsData {
+  const toItems = (value: unknown, prefix: string): GoalItem[] => {
+    if (!Array.isArray(value)) return [];
+    return value.map((item, idx) =>
+      typeof item === 'string' ? { id: `${prefix}-${idx}`, text: item, completed: false } : (item as GoalItem)
+    );
+  };
+  return {
+    longTerm: toItems(saved.longTerm, 'lt'),
+    weekly: toItems(saved.weekly, 'w'),
+    daily: toItems(saved.daily, 'd')
+  };
+}
+
+interface GoalColumnProps {
+  title: string;
+  placeholder: string;
+  items: GoalItem[];
+  showCheckbox: boolean;
+  accent: { title: string; button: string; focus: string; checkbox: string };
+  onChange: (items: GoalItem[]) => void;
+}
+
+function GoalColumn({ title, placeholder, items, showCheckbox, accent, onChange }: GoalColumnProps) {
+  const [newText, setNewText] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+
+  const addItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newText.trim()) return;
+    onChange([...items, { id: Date.now().toString(), text: newText.trim(), completed: false }]);
+    setNewText('');
+  };
+
+  const startEdit = (item: GoalItem) => {
+    setEditingId(item.id);
+    setEditText(item.text);
+  };
+
+  const saveEdit = () => {
+    if (editingId === null) return;
+    if (editText.trim()) {
+      onChange(items.map(item => item.id === editingId ? { ...item, text: editText.trim() } : item));
+    }
+    setEditingId(null);
+  };
+
+  const deleteItem = (id: string) => {
+    onChange(items.filter(item => item.id !== id));
+  };
+
+  const toggleItem = (id: string) => {
+    onChange(items.map(item => item.id === id ? { ...item, completed: !item.completed } : item));
+  };
+
+  return (
+    <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-md flex flex-col justify-between">
+      <div>
+        <h3 className={`text-lg font-semibold mb-3 ${accent.title}`}>{title}</h3>
+        <ul className="space-y-2 mb-4 text-sm text-slate-300">
+          {items.map((item) => (
+            <li key={item.id} className="group flex items-center gap-2 p-2.5 bg-slate-950 rounded border border-slate-800">
+              {showCheckbox && (
+                <input
+                  type="checkbox"
+                  checked={item.completed}
+                  onChange={() => toggleItem(item.id)}
+                  className={`rounded bg-slate-900 border-slate-700 shrink-0 ${accent.checkbox}`}
+                />
+              )}
+              {editingId === item.id ? (
+                <input
+                  type="text"
+                  value={editText}
+                  autoFocus
+                  onChange={(e) => setEditText(e.target.value)}
+                  onBlur={saveEdit}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveEdit();
+                    if (e.key === 'Escape') setEditingId(null);
+                  }}
+                  className={`flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm text-white focus:outline-none ${accent.focus}`}
+                />
+              ) : (
+                <span
+                  onDoubleClick={() => startEdit(item)}
+                  className={`flex-1 ${item.completed ? 'line-through text-slate-500' : 'text-slate-200'}`}
+                >
+                  {showCheckbox ? item.text : `・${item.text}`}
+                </span>
+              )}
+              {editingId !== item.id && (
+                <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition">
+                  <button onClick={() => startEdit(item)} title="編集" className="text-xs text-slate-400 hover:text-white px-1">✏️</button>
+                  <button onClick={() => deleteItem(item.id)} title="削除" className="text-xs text-slate-400 hover:text-rose-400 px-1">🗑️</button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <form onSubmit={addItem} className="flex gap-2">
+        <input
+          type="text"
+          value={newText}
+          onChange={(e) => setNewText(e.target.value)}
+          placeholder={placeholder}
+          className={`flex-1 bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-sm text-white focus:outline-none ${accent.focus}`}
+        />
+        <button type="submit" className={`px-3 py-1.5 rounded text-sm text-white transition ${accent.button}`}>追加</button>
+      </form>
+    </div>
+  );
+}
+
+export default function GoalsTab() {
+  const [goals, setGoals] = useState<GoalsData>(DEFAULT_GOALS);
 
   useEffect(() => {
-    const saved = localStorage.getItem('openclaw_goals');
-    if (saved) {
-      try {
-        setGoals(JSON.parse(saved));
-      } catch (e) {
-        console.error(e);
-      }
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) setGoals(normalizeGoals(JSON.parse(saved)));
+    } catch (e) {
+      console.error(e);
     }
   }, []);
 
-  const saveToStorage = (updated: GoalsData) => {
+  const updateGoals = (key: keyof GoalsData, items: GoalItem[]) => {
+    const updated = { ...goals, [key]: items };
     setGoals(updated);
-    localStorage.setItem('openclaw_goals', JSON.stringify(updated));
-  };
-
-  const addLongTerm = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newLongTerm.trim()) return;
-    saveToStorage({ ...goals, longTerm: [...goals.longTerm, newLongTerm] });
-    setNewLongTerm('');
-  };
-
-  const addMonthly = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMonthly.trim()) return;
-    const newItem: GoalItem = { id: Date.now().toString(), text: newMonthly, completed: false };
-    saveToStorage({ ...goals, monthly: [...goals.monthly, newItem] });
-    setNewMonthly('');
-  };
-
-  const addWeekly = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newWeekly.trim()) return;
-    const newItem: GoalItem = { id: Date.now().toString(), text: newWeekly, completed: false };
-    saveToStorage({ ...goals, weekly: [...goals.weekly, newItem] });
-    setNewWeekly('');
-  };
-
-  const toggleMonthly = (id: string) => {
-    const updated = goals.monthly.map(item => item.id === id ? { ...item, completed: !item.completed } : item);
-    saveToStorage({ ...goals, monthly: updated });
-  };
-
-  const toggleWeekly = (id: string) => {
-    const updated = goals.weekly.map(item => item.id === id ? { ...item, completed: !item.completed } : item);
-    saveToStorage({ ...goals, weekly: updated });
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
@@ -78,78 +162,30 @@ export default function GoalsTab() {
       <h2 className="text-2xl font-bold text-slate-100">🎯 長期目標 & タスク管理</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-md flex flex-col justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-blue-400 mb-3">🚀 長期目標</h3>
-            <ul className="space-y-2 mb-4 text-sm text-slate-300">
-              {goals.longTerm.map((item, idx) => (
-                <li key={idx} className="p-2.5 bg-slate-950 rounded border border-slate-800">・{item}</li>
-              ))}
-            </ul>
-          </div>
-          <form onSubmit={addLongTerm} className="flex gap-2">
-            <input 
-              type="text" 
-              value={newLongTerm}
-              onChange={(e) => setNewLongTerm(e.target.value)}
-              placeholder="新しい長期目標..."
-              className="flex-1 bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
-            />
-            <button type="submit" className="bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded text-sm text-white transition">追加</button>
-          </form>
-        </div>
-
-        <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-md flex flex-col justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-emerald-400 mb-3">📅 今月やること</h3>
-            <ul className="space-y-2 mb-4 text-sm text-slate-300">
-              {goals.monthly.map((item) => (
-                <li key={item.id} className="flex items-center justify-between p-2.5 bg-slate-950 rounded border border-slate-800">
-                  <label className="flex items-center gap-2 cursor-pointer w-full">
-                    <input type="checkbox" checked={item.completed} onChange={() => toggleMonthly(item.id)} className="rounded bg-slate-900 border-slate-700 text-emerald-500" />
-                    <span className={item.completed ? 'line-through text-slate-500' : 'text-slate-200'}>{item.text}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <form onSubmit={addMonthly} className="flex gap-2">
-            <input 
-              type="text" 
-              value={newMonthly}
-              onChange={(e) => setNewMonthly(e.target.value)}
-              placeholder="今月のタスク..."
-              className="flex-1 bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500"
-            />
-            <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded text-sm text-white transition">追加</button>
-          </form>
-        </div>
-
-        <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-md flex flex-col justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-amber-400 mb-3">✅ 今週やること</h3>
-            <ul className="space-y-2 mb-4 text-sm text-slate-300">
-              {goals.weekly.map((item) => (
-                <li key={item.id} className="flex items-center justify-between p-2.5 bg-slate-950 rounded border border-slate-800">
-                  <label className="flex items-center gap-2 cursor-pointer w-full">
-                    <input type="checkbox" checked={item.completed} onChange={() => toggleWeekly(item.id)} className="rounded bg-slate-900 border-slate-700 text-amber-500" />
-                    <span className={item.completed ? 'line-through text-slate-500' : 'text-slate-200'}>{item.text}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <form onSubmit={addWeekly} className="flex gap-2">
-            <input 
-              type="text" 
-              value={newWeekly}
-              onChange={(e) => setNewWeekly(e.target.value)}
-              placeholder="今週のタスク..."
-              className="flex-1 bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-amber-500"
-            />
-            <button type="submit" className="bg-amber-600 hover:bg-amber-500 px-3 py-1.5 rounded text-sm text-white transition">追加</button>
-          </form>
-        </div>
+        <GoalColumn
+          title="🚀 長期目標"
+          placeholder="新しい長期目標..."
+          items={goals.longTerm}
+          showCheckbox={false}
+          accent={{ title: 'text-blue-400', button: 'bg-blue-600 hover:bg-blue-500', focus: 'focus:border-blue-500', checkbox: 'text-blue-500' }}
+          onChange={(items) => updateGoals('longTerm', items)}
+        />
+        <GoalColumn
+          title="📅 今週やること"
+          placeholder="今週のタスク..."
+          items={goals.weekly}
+          showCheckbox
+          accent={{ title: 'text-emerald-400', button: 'bg-emerald-600 hover:bg-emerald-500', focus: 'focus:border-emerald-500', checkbox: 'text-emerald-500' }}
+          onChange={(items) => updateGoals('weekly', items)}
+        />
+        <GoalColumn
+          title="✅ 今日のタスク"
+          placeholder="今日のタスク..."
+          items={goals.daily}
+          showCheckbox
+          accent={{ title: 'text-amber-400', button: 'bg-amber-600 hover:bg-amber-500', focus: 'focus:border-amber-500', checkbox: 'text-amber-500' }}
+          onChange={(items) => updateGoals('daily', items)}
+        />
       </div>
     </div>
   );

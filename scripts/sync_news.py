@@ -1,149 +1,215 @@
 import os
-from datetime import datetime
+import re
+from datetime import datetime, timedelta, timezone
+from urllib.parse import urlencode
 import feedparser
 from google import genai
+from google.genai import types
+from pydantic import BaseModel
 from supabase import create_client, Client
 
 # --- 1. 各種設定 ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-
-# Gemini APIキー（環境変数、または直接文字列で設定）
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# SupabaseとGeminiクライアントの初期化
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
-# --- 2. メディア定義（Bloombergを最優先に分離） ---
-BLOOMBERG_FEED = "https://news.google.com/rss/search?q=when:24h+site:bloomberg.com&hl=en-US&gl=US&ceid=US:en"
+JST = timezone(timedelta(hours=9))
 
-OTHER_FEEDS = {
-    "Reuters": "https://news.google.com/rss/search?q=when:24h+site:reuters.com&hl=en-US&gl=US&ceid=US:en",
-    "Financial Times": "https://www.ft.com/?format=rss",
-    "Nikkei": "https://www.nikkei.com/rss/",
-    "X (Macro/Finance Trends)": "https://news.google.com/rss/search?q=site:x.com+OR+site:twitter.com+金融+マクロ+FRB&hl=ja&gl=JP&ceid=JP:ja"
+# --- 2. メディア定義（すべて同じ扱い・同じ件数で収集する） ---
+ARTICLES_PER_SOURCE = 4
+
+
+def google_news_feed(site, lang="en"):
+    if lang == "ja":
+        query = f"when:24h site:{site} (市場 OR 経済 OR 株価 OR 金利)"
+        params = {"q": query, "hl": "ja", "gl": "JP", "ceid": "JP:ja"}
+    else:
+        query = f"when:24h site:{site} (markets OR economy OR stocks OR bonds OR fed OR earnings)"
+        params = {"q": query, "hl": "en-US", "gl": "US", "ceid": "US:en"}
+    return "https://news.google.com/rss/search?" + urlencode(params)
+
+
+FEEDS = {
+    "Bloomberg": google_news_feed("bloomberg.com"),
+    "Reuters": google_news_feed("reuters.com"),
+    "Financial Times": google_news_feed("ft.com"),
+    "Wall Street Journal": google_news_feed("wsj.com"),
+    "CNBC": google_news_feed("cnbc.com"),
+    "Nikkei Asia": google_news_feed("asia.nikkei.com"),
+    "日本経済新聞": google_news_feed("nikkei.com", lang="ja"),
+    "X (Macro/Finance Trends)": "https://news.google.com/rss/search?q=site:x.com+OR+site:twitter.com+金融+マクロ+FRB&hl=ja&gl=JP&ceid=JP:ja",
 }
 
-def fetch_rss_articles():
-    """Bloombergをメインに、他メディアの情報を収集する"""
-    collected_articles = []
-    
-    # 🌟 1. まずBloombergの情報を最優先・多めに取得する
-    print("📥 【メイン】Bloomberg から最新ニュースを収集中...")
-    try:
-        feed = feedparser.parse(BLOOMBERG_FEED)
-        for entry in feed.entries[:5]: # Bloombergは上位5件
-            collected_articles.append({
-                "source": "Bloomberg (Main)",
-                "title": entry.title,
-                "url": entry.link
-            })
-    except Exception as e:
-        print(f"⚠️ Bloomberg の取得に失敗しました: {e}")
 
-    # 🌟 2. その他のメディアから補助的に情報を収集する
-    for source_name, url in OTHER_FEEDS.items():
-        print(f"📥 【サブ】{source_name} から記事を収集中...")
+def clean_title(title):
+    """Google News が付ける末尾の ' - Media名' を除去する"""
+    return re.sub(r"\s+-\s+[^-]+$", "", title).strip()
+
+
+def fetch_rss_articles():
+    """全メディアから同じ件数ずつ記事を収集し、ラウンドロビンで並べる"""
+    per_source = {}
+    seen_titles = set()
+
+    for source_name, url in FEEDS.items():
+        print(f"📥 {source_name} から記事を収集中...")
         try:
             feed = feedparser.parse(url)
-            for entry in feed.entries[:2]: # 他メディアは上位2件ずつ
-                collected_articles.append({
-                    "source": source_name,
-                    "title": entry.title,
-                    "url": entry.link
-                })
         except Exception as e:
             print(f"⚠️ {source_name} の取得に失敗しました: {e}")
-            
-    return collected_articles
+            continue
+
+        items = []
+        for entry in feed.entries:
+            title = clean_title(entry.title)
+            if title.lower() in seen_titles:
+                continue
+            seen_titles.add(title.lower())
+            items.append({"source": source_name, "title": title, "url": entry.link})
+            if len(items) >= ARTICLES_PER_SOURCE:
+                break
+        per_source[source_name] = items
+        print(f"   → {len(items)} 件")
+
+    # 特定メディアに偏らないよう、各メディアから1件ずつ交互に並べる
+    articles = []
+    for i in range(ARTICLES_PER_SOURCE):
+        for items in per_source.values():
+            if i < len(items):
+                articles.append(items[i])
+    return articles
+
+
+# --- 3. LLM の出力スキーマ ---
+class Section(BaseModel):
+    heading: str
+    points: list[str]
+
+
+class ArticleTopic(BaseModel):
+    index: int
+    topic: str
+
+
+class Digest(BaseModel):
+    headline: str
+    sections: list[Section]
+    article_topics: list[ArticleTopic]
+
+
+SECTION_HEADINGS = [
+    "マクロ・金融政策",
+    "株式・債券市場",
+    "為替・コモディティ",
+    "地政学",
+    "企業・M&A・IPO",
+    "注目トピック",
+]
+
 
 def generate_ai_summary(articles):
-    """取得した複数記事をLLMに要約させ、構造化された詳細データを生成する"""
-    print("🤖 AI（LLM）による詳細マクロ要約の生成中...")
-    
-    articles_text = "\n".join([f"- [{item['source']}] {item['title']} ({item['url']})" for item in articles])
-    
+    """記事群から構造化された要約を生成する"""
+    print("🤖 AI による要約を生成中...")
+
+    articles_text = "\n".join(
+        f"{i}. [{a['source']}] {a['title']}" for i, a in enumerate(articles)
+    )
+    headings_text = "、".join(SECTION_HEADINGS)
+
     prompt = f"""
-    あなたはプロの金融アナリストです。以下の最新ニュースヘッドライン群（特にBloombergの情報を軸にして）を分析し、以下の7つの観点を網羅した総合要約（総計500字以上）を作成してください。
-    1. 最新ニュースヘッドライン群を要約
-    2. マクロ情勢、金利状況、為替、重要指標の発表、金融政策の発表
-    3. 日米欧3つの株式市場と債券市場の動向
-    4. 地政学の情勢
-    5. M&AやIPOなどのニュース
-    6. ETFやインデックスの動向
-    7. それ以外の普段見ないようなニュース
-    の7つの観点を軸に、投資家向けに具体的かつ深い内容（総計400字以上）で総合要約を作成してください。
-    また、それぞれのトピックに該当する個別記事をJSONの配列形式（details用）で整理してください。
+あなたはプロの金融アナリストです。以下は複数メディアの最新ニュース見出しです。
+特定のメディアを優先せず、すべてのメディアの情報を均等に考慮して、投資家向けの要約を日本語で作成してください。
 
-    ---
+出力ルール:
+- headline: 今回の市場全体を1文（60字以内）でまとめる。
+- sections: 次の見出しをこの順番で使う: {headings_text}
+  - 各セクションは2〜4個の箇条書き（points）。1つの箇条書きは1文・80字以内で、具体的な数値や固有名詞を含める。
+  - 該当するニュースがないセクションは省略する。
+  - Markdown記号、絵文字、URL、メディア名の括弧書きは書かない。プレーンな文章のみ。
+- article_topics: 各記事の番号（index）に、上の見出しのうち最も当てはまるものを topic として1つ割り当てる。金融・経済と無関係な記事は含めない。
 
-    上記7つの分析のあとに、区切り線 `---` を挟んで、以下のフォーマットで個別記事のインサイト一覧をMarkdownで出力してください（JSON記法は一切使用せず、見やすい見出しと箇条書きにすること）。
+【ニュース一覧】
+{articles_text}
+"""
 
-    ### トピック別個別記事データ (Details)
-
-    #### 📌 [カテゴリ名]
-    - **タイトル**: [記事タイトル]
-    - **ソース**: [メディア名] | [記事を読む](URL)
-    - **💡 インサイト**: [アナリストとしての短い考察・影響分析]
-
-    ---
-
-    【注意事項】
-    - 生のJSON形式や ```json などのコードブロックは絶対に出力に含めないでください。
-    - すべて美しいMarkdownスタイル（太字、ハイパーリンク、絵文字）で統一してください。
-
-
-    【ニュース一覧】
-    {articles_text}
-    """
-
-    # Gemini APIによる要約生成
     response = gemini_client.models.generate_content(
         model="gemini-3.8-flash",
-        contents=prompt
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=Digest,
+        ),
     )
-    
-    return response.text
+    return response.parsed
+
+
+def format_summary(digest):
+    """フロントエンドで表示するシンプルなテキスト形式に変換する
+
+    1行目: ヘッドライン
+    '## 見出し' と '- 箇条書き' のみを使う
+    """
+    lines = [digest.headline.strip()]
+    for section in digest.sections:
+        if not section.points:
+            continue
+        lines.append("")
+        lines.append(f"## {section.heading.strip()}")
+        lines.extend(f"- {p.strip()}" for p in section.points)
+    return "\n".join(lines)
+
+
+def build_details(digest, articles):
+    """LLMが割り当てたトピックごとに記事リンクをまとめる（URLは収集データのものを使う）"""
+    topic_order = {h: i for i, h in enumerate(SECTION_HEADINGS)}
+    details = []
+    used = set()
+    for item in digest.article_topics:
+        if not (0 <= item.index < len(articles)) or item.index in used:
+            continue
+        used.add(item.index)
+        art = articles[item.index]
+        details.append({
+            "topic": item.topic,
+            "source": art["source"],
+            "title": art["title"],
+            "url": art["url"],
+        })
+    details.sort(key=lambda d: topic_order.get(d["topic"], len(SECTION_HEADINGS)))
+    return details
+
 
 def main():
-    print("🚀 Bloombergをメインにした高度なニュース収集・要約パイプラインを開始します...")
-    
-    # 1. 記事収集
+    print("🚀 マルチメディア・ニュース収集・要約パイプラインを開始します...")
+
     articles = fetch_rss_articles()
     if not articles:
         print("❌ 記事が取得できませんでした。")
         return
 
-    # 2. AI要約
-    summary_text = generate_ai_summary(articles)
-    
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    timestamp_id = datetime.now().strftime("%Y%m%d-%H%M")
-    
-    # 3. トピック別詳細データの構築
-    details_list = []
-    for art in articles[:4]: # 最大4件をdetailsにセット
-        details_list.append({
-            "topic": "市場動向・速報",
-            "source": art["source"],
-            "title": art["title"],
-            "url": art["url"]
-        })
+    digest = generate_ai_summary(articles)
+    if digest is None:
+        print("❌ AI 要約の生成に失敗しました。")
+        return
 
-    # 4. Supabase送信用ペイロード
+    now = datetime.now(JST)
     news_item = {
-        "id": f"news-{timestamp_id}",
-        "title": f"【AIマクロ分析】グローバル金融市場・トレンド ({datetime.now().strftime('%m/%d %H:%M')})",
-        "source": "OpenClaw Multi-Feed & LLM Pipeline",
-        "summary": summary_text,
-        "url": articles[0]["url"] if articles else "https://www.bloomberg.co.jp",
-        "details": details_list
+        "id": f"news-{now.strftime('%Y%m%d-%H%M')}",
+        "title": f"グローバル金融マーケット要約 ({now.strftime('%m/%d %H:%M')} JST)",
+        "source": "Multi-Media Digest",
+        "summary": format_summary(digest),
+        "url": articles[0]["url"],
+        "details": build_details(digest, articles),
     }
 
-    # 5. Supabaseへ upsert
-    response = supabase.table("daily_news").upsert(news_item).execute()
-    print("✅ Supabaseへの高度なデータ同期が完了しました！")
+    # 新しい要約を保存してから古い要約を削除する（上書き）
+    supabase.table("daily_news").upsert(news_item).execute()
+    supabase.table("daily_news").delete().neq("id", news_item["id"]).execute()
+    print("✅ Supabase のニュースを最新の要約で上書きしました！")
+
 
 if __name__ == "__main__":
     main()

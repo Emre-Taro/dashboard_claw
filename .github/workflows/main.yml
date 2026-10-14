@@ -5,9 +5,10 @@ on:
     branches:
       - main
   workflow_dispatch:
-  # 🌟 毎日日本時間の朝7:00 (UTC 22:00) に自動実行する設定
+  # 🌟 毎日日本時間の 7:00 (UTC 22:00) と 19:00 (UTC 10:00) に自動実行する設定
   schedule:
     - cron: '0 22 * * *'
+    - cron: '0 10 * * *'
 
 jobs:
   sync:
@@ -22,7 +23,7 @@ jobs:
           
       - name: Install dependencies
         run: |
-          pip install feedparser google-genai supabase
+          pip install feedparser google-genai supabase pydantic
           
       - name: Run sync script
         env:

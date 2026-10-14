@@ -18,7 +18,7 @@ export default function DashboardPage() {
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-4 gap-4">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
-              OpenClaw Personal Dashboard
+              Dashboard
             </h1>
             <p className="text-xs text-slate-400 mt-1">Autonomous Knowledge & Routine Hub</p>
           </div>
