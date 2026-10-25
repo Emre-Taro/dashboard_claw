@@ -1,14 +1,15 @@
 name: Daily Financial News Sync
 
 on:
-  push:
-    branches:
-      - main
+  # ⏸ Gemini API の不具合が直るまで自動実行を停止中（手動実行のみ可能）
+  # push:
+  #   branches:
+  #     - main
   workflow_dispatch:
   # 🌟 毎日日本時間の 7:00 (UTC 22:00) と 19:00 (UTC 10:00) に自動実行する設定
-  schedule:
-    - cron: '0 22 * * *'
-    - cron: '0 10 * * *'
+  # schedule:
+  #   - cron: '0 22 * * *'
+  #   - cron: '0 10 * * *'
 
 jobs:
   sync:
